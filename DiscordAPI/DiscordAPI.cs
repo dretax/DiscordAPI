@@ -12,7 +12,7 @@ namespace DiscordAPI
         public IniParser Settings;
         public string DiscordURL = "https://discordapp.com/api/channels/%ChannelID%/messages";
         private static DiscordAPI _instance;
-        public int ChannelID;
+        public ulong ChannelID;
         public string BotToken;
         
         [Flags]
@@ -144,7 +144,7 @@ namespace DiscordAPI
                 }
                 Settings = new IniParser(ModuleFolder + "\\Settings.ini");
                 BotToken = Settings.GetSetting("Settings", "BotToken");
-                ChannelID = int.Parse(Settings.GetSetting("Settings", "ChannelID"));
+                ChannelID = ulong.Parse(Settings.GetSetting("Settings", "ChannelID"));
                 
             }
             catch (Exception ex)

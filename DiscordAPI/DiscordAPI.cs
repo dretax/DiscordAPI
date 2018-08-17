@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Reflection;
 using System.Xml.Schema;
 using Fougerite;
 
@@ -85,15 +86,15 @@ namespace DiscordAPI
         public void SendMessageToBot(string message, Action<string> callback, Dictionary<string, string> AdditionalHeaders = null)
         {
             HttpWebRequest request = (HttpWebRequest) WebRequest.Create(DiscordURL);
-            request.Headers["Authorization"] =
-                BotToken.StartsWith("Bot ") ? BotToken : string.Format("Bot {0}", BotToken);
-            request.Headers["Content-Type"] = "application/json";
+            request.SetRawHeader("Authorization", BotToken.StartsWith("Bot ") ? BotToken : string.Format("Bot {0}", BotToken));
+            request.SetRawHeader("Content-Type", "application/json");
             request.Method = "GET"; // May requires changing?
             if (AdditionalHeaders != null)
             {
                 foreach (var x in AdditionalHeaders.Keys)
                 {
-                    request.Headers[x] = AdditionalHeaders[x];
+                    //request.Headers[x] = AdditionalHeaders[x];
+                    request.SetRawHeader(x, AdditionalHeaders[x]);
                 }
             }
             
@@ -152,6 +153,60 @@ namespace DiscordAPI
                 Logger.LogError("[DiscordAPI] Config failed: " + ex);
             }
             DiscordURL = DiscordURL.Replace("%ChannelID%", ChannelID.ToString());
+        }
+    }
+    
+    // https://stackoverflow.com/questions/239725/cannot-set-some-http-headers-when-using-system-net-webrequest
+    public static class HttpWebRequestExtensions
+    {
+        static readonly string[] RestrictedHeaders = new string[] {
+            "Accept",
+            "Connection",
+            "Content-Length",
+            "Content-Type",
+            "Date",
+            "Expect",
+            "Host",
+            "If-Modified-Since",
+            "Keep-Alive",
+            "Proxy-Connection",
+            "Range",
+            "Referer",
+            "Transfer-Encoding",
+            "User-Agent"
+        };
+
+        static Dictionary<string, PropertyInfo> HeaderProperties = new Dictionary<string, PropertyInfo>(StringComparer.OrdinalIgnoreCase);
+
+        static HttpWebRequestExtensions()
+        {
+            Type type = typeof(HttpWebRequest);
+            foreach (string header in RestrictedHeaders)
+            {
+                string propertyName = header.Replace("-", "");
+                PropertyInfo headerProperty = type.GetProperty(propertyName);
+                HeaderProperties[header] = headerProperty;
+            }
+        }
+
+        public static void SetRawHeader(this HttpWebRequest request, string name, string value)
+        {
+            if (HeaderProperties.ContainsKey(name))
+            {
+                PropertyInfo property = HeaderProperties[name];
+                if (property.PropertyType == typeof(DateTime))
+                    property.SetValue(request, DateTime.Parse(value), null);
+                else if (property.PropertyType == typeof(bool))
+                    property.SetValue(request, Boolean.Parse(value), null);
+                else if (property.PropertyType == typeof(long))
+                    property.SetValue(request, Int64.Parse(value), null);
+                else
+                    property.SetValue(request, value, null);
+            }
+            else
+            {
+                request.Headers[name] = value;
+            }
         }
     }
 }
